@@ -17,6 +17,7 @@ import { QuizzesResource } from "./resources/quizzes";
 import { DropboxesResource } from "./resources/dropboxes";
 import { AssessmentsResource } from "./resources/assessments";
 import { CalendarResource } from "./resources/calendar";
+import { OrgUnitsResource } from "./resources/org-units";
 
 /**
  * Extends BrightspaceClientConfig to accept either a plain AuthConfig object
@@ -116,6 +117,7 @@ export class BrightspaceClient {
 	readonly dropboxes: DropboxesResource;
 	readonly assessments: AssessmentsResource;
 	readonly calendar: CalendarResource;
+	readonly orgUnits: OrgUnitsResource;
 	readonly raw: RawClient;
 
 	constructor(options: BrightspaceClientOptions) {
@@ -202,6 +204,11 @@ export class BrightspaceClient {
 			this.versionsResolver,
 			ensureVersionsChecked
 		);
+		this.orgUnits = new OrgUnitsResource(
+			this.http,
+			this.versionsResolver,
+			ensureVersionsChecked
+		);
 		this.raw = new RawClient(this.http);
 	}
 
@@ -244,4 +251,7 @@ export class BrightspaceClient {
 	}
 }
 
-export type { BrightspaceClientConfig, RequestContext };
+export type {
+	BrightspaceClientOptions as BrightspaceClientConfig,
+	RequestContext,
+};

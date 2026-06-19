@@ -46,6 +46,7 @@ export { QuizzesResource } from "./resources/quizzes";
 export { DropboxesResource } from "./resources/dropboxes";
 export { AssessmentsResource } from "./resources/assessments";
 export { CalendarResource } from "./resources/calendar";
+export { OrgUnitsResource } from "./resources/org-units";
 
 export type {
 	// Users
