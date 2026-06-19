@@ -1,8 +1,9 @@
-import { createAuthProvider } from "./auth";
+import { createAuthProvider, type AuthProvider } from "./auth";
 import { HttpClient } from "./core/http-client";
 import { VersionResolver } from "./core/version-resolver";
 import { VersionError } from "./core/errors";
 import type {
+	AuthConfig,
 	BrightspaceClientConfig,
 	Middleware,
 	RequestContext,
@@ -12,6 +13,57 @@ import { EnrollmentsResource } from "./resources/enrollments";
 import { GradesResource } from "./resources/grades";
 import { UsersResource } from "./resources/users";
 import { VersionsResource } from "./resources/versions";
+import { QuizzesResource } from "./resources/quizzes";
+import { DropboxesResource } from "./resources/dropboxes";
+import { AssessmentsResource } from "./resources/assessments";
+import { CalendarResource } from "./resources/calendar";
+
+/**
+ * Extends BrightspaceClientConfig to accept either a plain AuthConfig object
+ * or a pre-constructed AuthProvider instance.
+ *
+ * Use a pre-constructed provider when you need to drive the OAuth2
+ * authorization code flow yourself — the two-phase redirect + code exchange
+ * pattern where the authorization code isn't available until after the user
+ * returns from the D2L consent screen:
+ *
+ * ```ts
+ * // Phase 1 — before redirect, construct provider and generate redirect URL
+ * const provider = new OAuth2AuthProvider({
+ *   type: "oauth2_authorization_code",
+ *   clientId: "...",
+ *   clientSecret: "...",
+ *   redirectUri: "https://app.example.com/oauth/callback",
+ *   scope: "core:*:*",
+ * });
+ * const redirectUrl = provider.getAuthorizationUrl(state);
+ * res.redirect(redirectUrl);
+ *
+ * // Phase 2 — in callback handler, exchange code then construct client
+ * await provider.exchangeCode(req.query.code);
+ * const client = new BrightspaceClient({ host, auth: provider });
+ * const me = await client.users.whoami();
+ * ```
+ *
+ * For all other auth flows, pass a plain AuthConfig object:
+ * - bearer: token known at construction time
+ * - legacy: all keys known at construction time
+ * - oauth2_client_credentials: private key known at construction time
+ * - oauth2_authorization_code with refreshToken: token renewal is automatic
+ */
+export interface BrightspaceClientOptions
+	extends Omit<BrightspaceClientConfig, "auth"> {
+	auth: AuthConfig | AuthProvider;
+}
+
+/**
+ * Duck-type guard that distinguishes a pre-constructed AuthProvider from a
+ * plain AuthConfig discriminated union member. AuthProvider instances expose
+ * a `getHeaders` method; AuthConfig objects do not.
+ */
+function isAuthProvider(auth: AuthConfig | AuthProvider): auth is AuthProvider {
+	return "getHeaders" in auth && typeof auth.getHeaders === "function";
+}
 
 class RawClient {
 	constructor(private readonly http: HttpClient) {}
@@ -60,19 +112,28 @@ export class BrightspaceClient {
 	readonly courses: CoursesResource;
 	readonly grades: GradesResource;
 	readonly versions: VersionsResource;
+	readonly quizzes: QuizzesResource;
+	readonly dropboxes: DropboxesResource;
+	readonly assessments: AssessmentsResource;
+	readonly calendar: CalendarResource;
 	readonly raw: RawClient;
 
-	constructor(config: BrightspaceClientConfig) {
-		const authProvider = createAuthProvider(config.auth);
+	constructor(options: BrightspaceClientOptions) {
+		// Accept either a pre-constructed AuthProvider or a plain AuthConfig.
+		// Duck-type on getHeaders — AuthProvider instances implement this method;
+		// plain AuthConfig objects (which are discriminated union members) do not.
+		const authProvider: AuthProvider = isAuthProvider(options.auth)
+			? options.auth
+			: createAuthProvider(options.auth);
 
 		this.http = new HttpClient({
-			host: config.host,
+			host: options.host,
 			authProvider,
-			...(config.timeout !== undefined ? { timeout: config.timeout } : {}),
-			...(config.retries !== undefined ? { retries: config.retries } : {}),
+			...(options.timeout !== undefined ? { timeout: options.timeout } : {}),
+			...(options.retries !== undefined ? { retries: options.retries } : {}),
 		});
 
-		this.versionsResolver = new VersionResolver(config.apiVersions);
+		this.versionsResolver = new VersionResolver(options.apiVersions);
 
 		const ensureVersionsChecked = async (): Promise<void> => {
 			// Short-circuit on a previous definitive failure
@@ -121,6 +182,26 @@ export class BrightspaceClient {
 			ensureVersionsChecked
 		);
 		this.versions = new VersionsResource(this.http, this.versionsResolver);
+		this.quizzes = new QuizzesResource(
+			this.http,
+			this.versionsResolver,
+			ensureVersionsChecked
+		);
+		this.dropboxes = new DropboxesResource(
+			this.http,
+			this.versionsResolver,
+			ensureVersionsChecked
+		);
+		this.assessments = new AssessmentsResource(
+			this.http,
+			this.versionsResolver,
+			ensureVersionsChecked
+		);
+		this.calendar = new CalendarResource(
+			this.http,
+			this.versionsResolver,
+			ensureVersionsChecked
+		);
 		this.raw = new RawClient(this.http);
 	}
 
