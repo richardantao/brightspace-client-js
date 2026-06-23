@@ -1,26 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Middleware } from "../types";
-import { createTestClient } from "./test-utils";
-
-const mockFetch = vi.fn();
-vi.stubGlobal("fetch", mockFetch);
-
-function respondJsonOnce(
-	body: unknown,
-	status = 200,
-	headers: Record<string, string> = {}
-): void {
-	mockFetch.mockResolvedValueOnce(
-		new Response(JSON.stringify(body), {
-			status,
-			headers: {
-				"Content-Type": "application/json",
-				...headers,
-			},
-		})
-	);
-}
+import { createTestClient, mockFetch, respondJsonOnce } from "./test-utils";
 
 describe("BrightspaceClient", () => {
 	beforeEach(() => {
