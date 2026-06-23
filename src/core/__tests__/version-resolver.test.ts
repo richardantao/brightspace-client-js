@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { VersionError } from "../errors";
+import type { HttpClient } from "../http-client";
 import { VersionResolver } from "../version-resolver";
 
 describe("VersionResolver", () => {
@@ -28,7 +29,7 @@ describe("VersionResolver", () => {
 					},
 				],
 			}),
-		};
+		} as unknown as HttpClient;
 
 		await expect(resolver.check(client)).rejects.toBeInstanceOf(VersionError);
 	});
@@ -50,7 +51,7 @@ describe("VersionResolver", () => {
 					},
 				],
 			}),
-		};
+		} as unknown as HttpClient;
 
 		await resolver.check(client);
 		expect(resolver.path("lp", "users")).toBe("/d2l/api/lp/1.48/users");
